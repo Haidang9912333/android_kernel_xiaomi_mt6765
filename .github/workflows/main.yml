@@ -1,4 +1,4 @@
-name: Build_Redmi9C_Auto_Config
+name: Build_Redmi9C_Final_Success
 on:
   workflow_dispatch:
 
@@ -12,25 +12,20 @@ jobs:
           repository: xiaomi-mt6765/android_kernel_xiaomi_mt6765
           ref: lineage-17.1
 
-      - name: Setup Build Tools
+      - name: Setup Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc build-essential git libssl-dev python3 flex bison libncurses-dev
+          sudo apt-get install -y bc build-essential git libssl-dev python3 flex bison
+          # Clone Toolchain
           git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 gcc64
           git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 --depth=1 gcc32
 
-      - name: Find and Patch Config
+      - name: Patch Docker Config
         run: |
-          # Tự động tìm file config (ưu tiên angelica -> mt6765 -> defconfig)
-          SEARCH_PATH="arch/arm64/configs"
-          CONF=$(find $SEARCH_PATH -name "angelica_defconfig" | head -n 1)
-          if [ -z "$CONF" ]; then CONF=$(find $SEARCH_PATH -name "mt6765_defconfig" | head -n 1); fi
-          if [ -z "$CONF" ]; then CONF=$(find $SEARCH_PATH -name "defconfig" | head -n 1); fi
+          # Tìm file config phù hợp nhất
+          CONF=$(find arch/arm64/configs/ -name "mt6765_defconfig" -o -name "defconfig" | head -n 1)
+          echo "Using Config: $CONF"
           
-          echo "Đã tìm thấy file cấu hình tại: $CONF"
-          echo "REAL_CONF_PATH=$CONF" >> $GITHUB_ENV
-          
-          # Ghi cấu hình Docker vào file vừa tìm được
           cat <<EOF >> $CONF
           CONFIG_NAMESPACES=y
           CONFIG_NET_NS=y
@@ -54,22 +49,25 @@ jobs:
 
       - name: Build Kernel
         run: |
-          # Thiết lập compiler
-          export GCC64=$(pwd)/gcc64/bin/aarch64-linux-android-
-          export GCC32=$(pwd)/gcc32/bin/arm-linux-androideabi-
+          # TỰ ĐỘNG TÌM ĐƯỜNG DẪN BIN (Sửa lỗi No such file)
+          GCC64_BIN=$(find $(pwd)/gcc64 -name "aarch64-linux-android-gcc" -exec dirname {} \;)
+          GCC32_BIN=$(find $(pwd)/gcc32 -name "arm-linux-androideabi-gcc" -exec dirname {} \;)
+          
+          export PATH=$GCC64_BIN:$GCC32_BIN:$PATH
           export ARCH=arm64
-          export CROSS_COMPILE=$GCC64
-          export CROSS_COMPILE_ARM32=$GCC32
+          export CROSS_COMPILE=aarch64-linux-android-
+          export CROSS_COMPILE_ARM32=arm-linux-androideabi-
           
-          # Lấy tên file config ngắn gọn (ví dụ: mt6765_defconfig)
-          CONF_NAME=$(basename ${{ env.REAL_CONF_PATH }})
+          # Lấy tên file config ngắn gọn
+          CONF_NAME=$(basename $(find arch/arm64/configs/ -name "mt6765_defconfig" -o -name "defconfig" | head -n 1))
           
-          # Nạp config và build
           make O=out $CONF_NAME
+          
+          # Build Image.gz-dtb và bỏ qua dtbo_check (Sửa lỗi No rule to make target)
           make -j$(nproc --all) O=out Image.gz-dtb
 
-      - name: Upload Artifact
+      - name: Upload Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_Redmi9C_Final
+          name: Kernel_Redmi9C_Docker_Success
           path: out/arch/arm64/boot/Image.gz-dtb
