@@ -28,7 +28,7 @@ jobs:
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
-          make O=out angelica_defconfig
+          make O=out defconfig
           
           # --- FIX LOI MANG NAT (Sua loi addrtype va PREROUTING) ---
           ./scripts/config --file out/.config --enable CONFIG_NETFILTER
