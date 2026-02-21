@@ -25,8 +25,8 @@ jobs:
           find . -name "Makefile" -exec sed -i 's/-fstack-protector-strong//g' {} +
           find . -name "Makefile" -exec sed -i 's/-fstack-protector//g' {} +
           sed -i 's/CONFIG_KVM=y/CONFIG_KVM=n/' out/.config
-# Hoặc nếu chưa nạp config:
-         sed -i 's/CONFIG_KVM=y/CONFIG_KVM=n/' arch/arm64/configs/angelica_defconfig
+          # Hoặc nếu chưa nạp config:
+          sed -i 's/CONFIG_KVM=y/CONFIG_KVM=n/' arch/arm64/configs/angelica_defconfig
       - name: 3. Cau hinh Docker Toan dien (Sua loi NAT & Missing)
         run: |
           export ARCH=arm64
